@@ -55,6 +55,12 @@ const DEFAULT_USER_AGENT =
  */
 const WORKER_RAMP_MS = 750;
 
+// Internal marker only: it never appears in persisted JSON results. It lets the
+// pool distinguish a real scrape failure (which gets its normal fresh-context
+// retry) from a product whose worker time budget has already been exhausted.
+const ATTEMPT_TIMED_OUT = Symbol('attemptTimedOut');
+type TimedScrapeResult = ScrapeResult & { [ATTEMPT_TIMED_OUT]?: true };
+
 /**
  * The request budget for a run that has only one product in it.
  *
@@ -363,6 +369,7 @@ async function scrapeWithBackoff(
   // Bounded to a single extra attempt, and only ever on a product that is
   // already lost — a batch that is scraping cleanly pays nothing for this.
   if (!options.signal?.aborted && TRANSIENT_STATUSES.includes(result.status)) {
+    if (result[ATTEMPT_TIMED_OUT]) return { ...result, attempts };
     log.warn(`${result.status} — one retry in a fresh context before recording it.`);
     attempts++;
     const retried = await scrapeOnce(browser, input, options, limiter, attempts, workerId);
@@ -382,7 +389,7 @@ async function scrapeOnce(
   limiter: RateLimiter,
   attempt: number,
   workerId: number,
-): Promise<ScrapeResult> {
+): Promise<TimedScrapeResult> {
   const context = await createContext(browser, options);
 
   // Playwright has no notion of an AbortSignal, and a product can be parked in a
@@ -413,9 +420,16 @@ async function scrapeOnce(
     // Closing the context throws inside the pipeline, which catches it and
     // reports whatever Playwright said about a closed target. Say what actually
     // happened instead — the status is right, only the message is misleading.
-    return overBudget && result.status !== 'OK' ? { ...result, message: gaveUp() } : result;
+    // The deadline is a hard worker limit: even if a late Playwright operation
+    // happens to return a value while its context is being closed, the product
+    // is recorded as failed and this worker can take the next queue item.
+    return overBudget
+      ? { ...failure(input, 'ERROR', gaveUp()), [ATTEMPT_TIMED_OUT]: true }
+      : result;
   } catch (error) {
-    return failure(input, 'ERROR', overBudget ? gaveUp() : errorMessage(error));
+    return overBudget
+      ? { ...failure(input, 'ERROR', gaveUp()), [ATTEMPT_TIMED_OUT]: true }
+      : failure(input, 'ERROR', errorMessage(error));
   } finally {
     clearTimeout(budget);
     options.signal?.removeEventListener('abort', abortContext);

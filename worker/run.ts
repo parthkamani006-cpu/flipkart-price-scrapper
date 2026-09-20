@@ -94,6 +94,10 @@ export async function runBatch(
         delayMs: options.delayMs,
         delayJitterMs: options.delayJitterMs,
         timeout: options.timeout,
+        // A stuck product must not keep one GitHub Actions worker occupied.
+        // The scraper closes its context at this deadline, records an ERROR,
+        // and this worker immediately takes the next pending product.
+        productBudgetMs: 30_000,
         blockBackoffMs: options.blockBackoffMs,
         blockRetries: options.blockRetries,
         concurrency,
