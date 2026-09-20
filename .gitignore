@@ -1,0 +1,18 @@
+/node_modules
+/.next
+/dist
+/data
+next-env.d.ts
+*.tsbuildinfo
+
+# Secrets. The repo is public — nothing below may ever be committed.
+.env
+.env.*
+!.env.example
+
+# Local scraper scratch output — the dashboard writes its own under /data.
+/results.json
+/results.ndjson
+
+# Worker crash-safety journals (see worker/journal.ts)
+/worker-journal

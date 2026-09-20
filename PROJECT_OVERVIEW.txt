@@ -1,0 +1,539 @@
+================================================================================
+FLIPKART SELLER PRICE SCRAPER & CONTROL DASHBOARD
+Complete Project Overview
+================================================================================
+
+--------------------------------------------------------------------------------
+1. WHAT THIS PRODUCT DOES (IN ONE PARAGRAPH)
+--------------------------------------------------------------------------------
+
+This is an automated price-monitoring and bank-settlement analysis tool for
+Flipkart sellers. You give it a list of your products (an Excel file exported
+from Flipkart Seller Hub) and your seller name. The system then visits each
+product page on Flipkart, reads the price Flipkart is currently headlining
+(the "buy box" price), opens the full "See other sellers" list, finds YOUR
+listing inside it, and reports the exact price gap between the two. It then
+calculates what your bank settlement would become if you matched that price,
+and tells you whether that new settlement still stays above your minimum
+acceptable settlement value. Everything is presented in a live web dashboard
+and can be exported to Excel or CSV.
+
+In short: it answers the question "on which of my products am I losing the buy
+box, by how much, and can I afford to drop my price to win it back?" — for
+thousands of products, automatically, without anyone opening a browser tab.
+
+--------------------------------------------------------------------------------
+2. THE BUSINESS PROBLEM IT SOLVES
+--------------------------------------------------------------------------------
+
+A seller with hundreds or thousands of SKUs on Flipkart faces three daily
+problems:
+
+  * They cannot know, product by product, whether a competing seller has
+    undercut them and taken the buy box.
+  * Checking manually means opening each product page, clicking "See other
+    sellers", scrolling, clicking "show more" repeatedly, and finding their
+    own name in the list. At roughly a minute per product, 1,000 products is
+    over two full working days of clicking.
+  * Even when they find a price gap, deciding whether to match it requires
+    cross-referencing the bank settlement sheet to check the new settlement
+    would not fall below the minimum profitable figure.
+
+This system does all three, unattended, at roughly 4 seconds per product.
+
+--------------------------------------------------------------------------------
+3. TWO WAYS TO USE IT
+--------------------------------------------------------------------------------
+
+A) WEB DASHBOARD (the main product)
+   A browser-based control panel. Upload the spreadsheets, review the
+   validation, press Start, and watch the run live. No technical knowledge
+   required. This is what the end user will use day to day.
+
+B) COMMAND-LINE TOOL (for power users / automation)
+   The same engine driven from a terminal, for scheduled runs, scripting, or
+   integration into other systems.
+
+Both use the exact same scraping engine and the same result file format, so a
+batch started in one can be resumed by the other. Nothing is duplicated
+between them, which means a fix in the engine benefits both immediately.
+
+================================================================================
+PART 1 — THE DASHBOARD (END-USER FEATURES)
+================================================================================
+
+--------------------------------------------------------------------------------
+4. UPLOAD & DATA VALIDATION
+--------------------------------------------------------------------------------
+
+  * Accepts standard Flipkart Seller Hub exports in XLS or XLSX format — no
+    reformatting, no manual column mapping, no CSV conversion.
+
+  * TWO FILES ARE UPLOADED:
+      1. Seller listing sheet — provides "Seller SKU Id", "Flipkart Serial
+         Number (FSN)", and the current "Bank Settlement" value.
+      2. Minimum settlement sheet — provides "FSN" and "Minimum Bank
+         Settlement price", i.e. the floor below which a sale is not worth
+         making.
+    Matching FSNs across the two sheets are joined automatically.
+
+  * The target seller name is typed once on the upload screen and applied to
+    every row — the user never has to add a column for it.
+
+  * SMART HEADER DETECTION — the tool searches the sheet for the header row
+    rather than assuming it is row 1, and automatically skips Flipkart's
+    "instruction row" (the explanatory text row Seller Hub inserts under the
+    headers). Real-world exports work as-is.
+
+  * PRODUCT URLS ARE BUILT AUTOMATICALLY from the FSN. The user never supplies
+    a link.
+
+  * FULL PRE-FLIGHT VALIDATION REPORT before anything is created. Every problem
+    is listed per row, with the row number:
+      - missing required fields
+      - duplicate rows (same SKU + URL)
+      - invalid product URLs
+      - non-numeric settlement values
+    Nothing is scraped until the user has seen and accepted this report, so a
+    bad spreadsheet never wastes a three-hour run.
+
+--------------------------------------------------------------------------------
+5. LIVE DASHBOARD & MONITORING
+--------------------------------------------------------------------------------
+
+  * NINE LIVE STAT CARDS: total products, pending, running, completed,
+    succeeded, failed, success percentage, average time per product, estimated
+    time remaining, and queue length.
+
+  * LIVE PROGRESS PANEL, updating in real time as each product is processed:
+      - which product is being scraped right now (SKU, FSN, seller, URL)
+      - which step it is on (opening page → reading page → reading main price
+        → opening seller list → finding seller → comparing → done)
+      - a progress bar for the current product and one for the whole batch
+      - elapsed time and estimated time to completion
+      - browser status (idle / launching / scraping / backing off / closing)
+
+  * Updates stream to the browser instantly (server-sent events) — no manual
+    refresh, no polling delay.
+
+--------------------------------------------------------------------------------
+6. RUN CONTROLS — START, PAUSE, RESUME, STOP
+--------------------------------------------------------------------------------
+
+  * START — begins the batch.
+
+  * PAUSE — lets the product currently in progress finish and be saved, then
+    halts the queue cleanly. Nothing is lost or half-written.
+
+  * RESUME — continues from the first unfinished product. Products already
+    completed are never re-scraped, so no time and no requests are wasted.
+    Products that were blocked by Flipkart's bot protection ARE retried,
+    because that status describes the network conditions at the time, not the
+    product.
+
+  * STOP — aborts immediately, even mid-page-load. The product that was in
+    flight is left as pending rather than being recorded as a failure, so a
+    later resume picks it up cleanly and the statistics stay honest.
+
+--------------------------------------------------------------------------------
+7. CRASH RECOVERY — NO WORK IS EVER LOST
+--------------------------------------------------------------------------------
+
+  * Every product's result is written to disk the moment it completes, BEFORE
+    the next product starts.
+
+  * Therefore a browser crash, a server restart, a Windows update, or a power
+    cut can lose at most ONE product — the single one in flight.
+
+  * On the next startup, the system automatically detects any batch that was
+    mid-run, marks it "Interrupted", and offers a Resume button. A run that
+    died at product 900 of 1,000 resumes at 900, not at 1.
+
+  * A result file left half-written by a hard kill is detected and repaired
+    automatically on resume.
+
+--------------------------------------------------------------------------------
+8. THE QUEUE VIEW
+--------------------------------------------------------------------------------
+
+  * A virtualized table — it renders thousands of rows without slowing down
+    the browser.
+
+  * Every row shows its SKU, FSN, target seller, status, prices, difference,
+    duration, and completion time.
+
+  * FILTERS: by status, SKU, FSN, seller, URL, date, duration, and failure
+    reason, plus a global search box across all of them.
+
+  * The filters carry through to export — what you see is what you download.
+
+--------------------------------------------------------------------------------
+9. THE SETTLEMENT VIEW (THE COMMERCIAL DECISION SCREEN)
+--------------------------------------------------------------------------------
+
+This is the screen that turns raw scraped prices into a business decision.
+
+  For each product:
+      Difference            = Flipkart's current price − your price
+      Difference %          = difference as a percentage of your price
+      Final Bank Settlement = your current bank settlement + difference
+
+  Rows are then automatically sorted into four lists:
+
+    1. MAIN — the final settlement is still at or above your minimum
+       threshold. These are the products where you can safely match the
+       price and still make your target margin. This is the actionable list.
+
+    2. BELOW THRESHOLD — matching the price would push the settlement under
+       your minimum. Do not chase these.
+
+    3. NO DIFFERENCE — your price already equals the headline price. Kept in
+       its own list so it never pollutes the two above.
+
+    4. NEEDS REVIEW — not scraped yet, failed to scrape, or missing input
+       data. Each row carries a plain-English reason so the user knows exactly
+       what to fix.
+
+  * BUY BOX DETECTION — the system also reads WHO currently holds the buy box
+    (the seller Flipkart is headlining) and reports whether that is you. A
+    simple YES / NO per product.
+
+  * ONE-CLICK DEEP LINK — clicking any row opens that exact product's listing
+    page inside Flipkart Seller Hub, filtered to that FSN, so the price can be
+    edited immediately. No searching, no copy-pasting FSNs.
+
+  * All three lists are virtualized, so they stay fast at any scale.
+
+--------------------------------------------------------------------------------
+10. FAILED PRODUCTS VIEW
+--------------------------------------------------------------------------------
+
+  * Every failure is listed with a specific, human-readable reason — not a
+    generic error.
+
+  * A SCREENSHOT OF THE PAGE AT THE MOMENT OF FAILURE is captured and can be
+    viewed or downloaded from the dashboard. This makes diagnosing "why did
+    this one fail?" a five-second job instead of a guessing game.
+
+  * Retry a single failed product, or bulk-retry all of them, with one click.
+
+--------------------------------------------------------------------------------
+11. LOGS
+--------------------------------------------------------------------------------
+
+  * Full timestamped activity log of the entire run.
+  * Colour-coded by level (step / info / warning / error).
+  * Searchable, filterable, and downloadable for record-keeping or support.
+
+--------------------------------------------------------------------------------
+12. ANALYTICS
+--------------------------------------------------------------------------------
+
+Charts computed live from the batch:
+
+  * Outcome breakdown — succeeded / failed / pending.
+  * Scrape-time distribution — how many products took under 2s, 2–5s, 5–10s,
+    10–20s, 20–60s, over 60s. Makes slowdowns visible at a glance.
+  * Products per hour — throughput over the life of the run.
+  * Failure reasons ranked by frequency — shows immediately whether failures
+    are one systemic problem or scattered noise.
+  * Seller distribution with per-seller success and failure counts.
+  * Average and median scrape time.
+
+--------------------------------------------------------------------------------
+13. EXPORT — EXCEL & CSV
+--------------------------------------------------------------------------------
+
+Both formats are produced from a single definition, so they can never disagree
+with each other. Active filters are respected.
+
+  COLUMNS INCLUDED (28 in total):
+    Index, SKU, FSN, Target Seller, Matched Seller, Winning Seller Name,
+    Status, Scrape Status, Flipkart Price, My Price, Buybox (YES/NO),
+    Difference, Difference %, Current Bank Settlement, Minimum Bank
+    Settlement, Final Bank Settlement, Settlement List, Settlement Reason,
+    Price Different, Sellers Scanned, Show More Clicks, Source,
+    Duration (ms), Attempts, Finished At (date & time), Message, Screenshot,
+    Product URL, Seller Link.
+
+  EXCEL FILE QUALITY DETAILS:
+    * Bold, frozen header row — headers stay visible while scrolling.
+    * AutoFilter enabled on every column — the file is usable the instant it
+      opens.
+    * Sensible column widths, and real Excel date cells (dd/mm/yyyy hh:mm:ss)
+      for the completion timestamp, so date sorting actually works.
+    * A second "Summary" worksheet: batch name, job ID, created / started /
+      finished timestamps, state, total products, exported rows, succeeded,
+      failed, still pending, and the pacing setting used.
+    * "Seller Link" column contains the direct Flipkart Seller Hub deep link
+      for each product, so the exported sheet is as clickable as the
+      dashboard.
+
+  CSV FILE QUALITY DETAILS:
+    * UTF-8 with a byte-order mark, so the rupee symbol and seller names open
+      correctly in Excel rather than as garbled characters.
+    * CSV-injection protection — a value beginning with =, +, - or @ is
+      neutralised so it can never execute as a formula in the recipient's
+      spreadsheet. (A genuine security safeguard; a seller named "=cmd" cannot
+      be used as an attack vector.)
+    * Streamed rather than buffered, so exporting a very large batch never
+      exhausts server memory.
+
+================================================================================
+PART 2 — THE SCRAPING ENGINE (WHY THE DATA IS TRUSTWORTHY)
+================================================================================
+
+--------------------------------------------------------------------------------
+14. ACCURACY ENGINEERING
+--------------------------------------------------------------------------------
+
+Flipkart's pages are deliberately hostile to automated reading. The following
+are real traps that were identified from saved copies of live Flipkart pages
+and explicitly defended against:
+
+  * STRUCTURED DATA FIRST. The product page embeds a machine-readable data
+    block (JSON-LD) containing the authoritative price. That is read first.
+    Visual scraping is only the fallback. This makes the price immune to
+    Flipkart restyling their pages.
+
+  * THE SPONSORED-AD TRAP. Flipkart opens product pages with a sponsored
+    carousel, so the FIRST price appearing on the page is an advertisement's
+    price, not the product's. A naive scraper reports the ad price. This one
+    anchors to the product title heading and takes the first price after it.
+
+  * THE BANK-OFFER TRAP. Desktop seller cards contain offer text such as
+    "Flat Rs.50 off" and "Rs.75 Cashback" INSIDE the same card as the price.
+    A scraper that picks the lowest number in a card would report Rs.50 as a
+    seller's price when it is really Rs.200. This one takes values in document
+    order, because the real price always precedes the MRP, which precedes the
+    offers.
+
+  * STRUCK-THROUGH MRP EXCLUSION. Where a card shows both the selling price
+    and a crossed-out MRP, the crossed-out one is detected by its actual
+    rendered styling and excluded.
+
+  * TWO COMPLETELY DIFFERENT SELLER PAGE LAYOUTS are supported — Flipkart
+    serves different markup to different users (A/B tests and viewport
+    variations). Both known layouts are handled.
+
+  * A THIRD, LAYOUT-INDEPENDENT FALLBACK. Beyond the two known layouts, there
+    is a text-anchored strategy that finds the element whose text IS the
+    seller's name and walks outward to the nearest price. This means a
+    Flipkart redesign degrades the tool rather than breaking it.
+
+  * FUZZY SELLER-NAME MATCHING. Names are compared with case, spacing and
+    punctuation ignored, so "Shoppping Dil Se" correctly matches
+    "ShopppingDilSe".
+
+  * "WRONG DATA IS WORSE THAN NO DATA." Where the price cannot be established
+    with confidence, the system reports a specific failure status rather than
+    a plausible-looking guess. The client is never silently given a wrong
+    number.
+
+--------------------------------------------------------------------------------
+15. SPEED & RELIABILITY ENGINEERING
+--------------------------------------------------------------------------------
+
+  * NO FIXED WAITS. Instead of sleeping for a fixed number of seconds, the
+    system polls for the condition it needs and continues the instant it is
+    true. Slow pages and lazy loading are handled automatically, and fast
+    pages are not artificially slowed down.
+
+  * DIRECT NAVIGATION. Rather than clicking "See other sellers" and hoping no
+    overlay intercepts the click, the system navigates straight to the seller
+    list URL. Faster and more reliable. Clicking remains the fallback.
+
+  * INTELLIGENT "SHOW MORE" HANDLING. The seller list paginates. The loop
+    stops when the seller is found, when the button disappears, or when a
+    click stops producing new rows — it is driven by what actually happened,
+    not by a fixed click count. A hard cap exists purely as a runaway guard.
+
+  * NETWORK SHORTCUT. The system opportunistically watches Flipkart's own
+    background data requests. If the seller list arrives as data, the entire
+    click-and-scroll loop is skipped. Every result records which path was
+    used, so this is fully auditable.
+
+--------------------------------------------------------------------------------
+16. ANTI-BLOCKING / BOT-WALL HANDLING
+--------------------------------------------------------------------------------
+
+  * CONFIGURABLE PACING between products (default 1.5 seconds), plus a random
+    jitter, so the request pattern is not robotically uniform. Rapid
+    back-to-back requests from one IP address are what actually triggers
+    Flipkart's protection.
+
+  * HUMAN-LIKE IDLE BEHAVIOUR between products — small curved mouse movements,
+    a short scroll, a hover. This runs strictly AFTER a product's result has
+    been computed and changes no page state, so it can never affect the data.
+    It can be disabled.
+
+  * AUTOMATIC BACK-OFF ON BLOCKING. If a captcha or a 403/429/503 response is
+    hit, the run pauses (default 60 seconds, doubling each time) and retries
+    that product up to 3 times.
+
+  * FAIL-SAFE STOP. If it is still blocked after the retries, the run STOPS
+    rather than burning the remaining thousand products against a wall. Once
+    the block clears, Resume continues exactly where it left off.
+
+  * SEQUENTIAL BY DESIGN. One browser, one product at a time. Running products
+    in parallel is what trips rate-limiting and captchas, so it is
+    deliberately not done.
+
+  * LOGGED-IN SESSIONS SUPPORTED, if a particular page ever requires one.
+
+--------------------------------------------------------------------------------
+17. AUTOMATED REGRESSION TEST SUITE
+--------------------------------------------------------------------------------
+
+  * 35 automated assertions run against three saved copies of real Flipkart
+    pages, verifying: price parsing, both price-reading paths, all 10 sellers
+    on the compact layout and all 5 on the desktop layout with their exact
+    prices, the "show more" button disambiguation, the bank-offer price trap,
+    the layout-independent fallback, and the comparison arithmetic.
+
+  * The suite deliberately strips out Flipkart's CSS class names and confirms
+    the fallback strategy still returns the right prices — i.e. it proves the
+    tool survives a Flipkart redesign.
+
+  * Two of the traps described in section 14 (the sponsored-ad price and the
+    bank-offer price) were caught by this suite during development, not by a
+    customer.
+
+  * MAINTENANCE PATH: when Flipkart redesigns, re-save the page snapshots, run
+    one command, and repair whatever the suite reports as red. All the page
+    selectors live in a single file, so a Flipkart markup change touches
+    exactly one file.
+
+================================================================================
+PART 3 — COMMAND-LINE TOOL
+================================================================================
+
+--------------------------------------------------------------------------------
+18. CLI CAPABILITIES
+--------------------------------------------------------------------------------
+
+  * Scrape a single product, or a batch from a file.
+  * Output to the terminal as JSON, or to a file.
+  * Quiet mode for clean piping into other tools.
+  * Headed mode to visually watch the browser work (useful for demos and
+    debugging).
+  * Resume support, identical to the dashboard's.
+  * Configurable pacing, jitter, timeouts, block back-off and retry counts.
+  * Failure screenshots to a chosen folder.
+  * Exit code 0 when at least one product succeeded and 1 otherwise, so it
+    slots into scheduled tasks and CI systems that branch on success.
+  * Can also be called programmatically from other code.
+
+--------------------------------------------------------------------------------
+19. RESULT STATUS CODES (WHAT A ROW CAN COME BACK AS)
+--------------------------------------------------------------------------------
+
+  OK                       Scraped successfully.
+  PRODUCT_UNAVAILABLE      The product page is gone or out of stock.
+  NO_SELLER_LINK           No "other sellers" link on the page.
+  SELLER_LIST_LOAD_FAILED  The seller list did not load.
+  SELLER_NOT_FOUND         Your seller is not listed on this product.
+  MAIN_PRICE_NOT_FOUND     Flipkart's headline price could not be read
+                           confidently.
+  SELLER_PRICE_NOT_FOUND   Your price could not be read confidently.
+  BLOCKED                  Flipkart's bot protection intervened; retried
+                           automatically, and retried again on resume.
+  ERROR                    Any other unexpected condition, with a message.
+
+  Failures never crash the run. Every one comes back as a row with a status
+  and a human-readable explanation, so a batch of 1,000 always finishes with
+  1,000 rows of accounted-for outcomes.
+
+================================================================================
+PART 4 — TECHNICAL & OPERATIONAL
+================================================================================
+
+--------------------------------------------------------------------------------
+20. TECHNOLOGY STACK
+--------------------------------------------------------------------------------
+
+  Language          TypeScript (fully type-checked, end to end)
+  Web framework     Next.js 15 with React 19
+  Browser automation Playwright (Chromium)
+  UI                Tailwind CSS with Radix UI primitives (accessible,
+                    keyboard-navigable components)
+  Charts            Recharts
+  Large tables      TanStack Virtual (renders thousands of rows smoothly)
+  Data fetching     TanStack React Query + server-sent events for live updates
+  Spreadsheets      SheetJS (reading) and ExcelJS (writing)
+  Validation        Zod schema validation
+  Storage           Plain files on disk — no database to install, back up, or
+                    pay for
+
+--------------------------------------------------------------------------------
+21. DATA STORAGE & PRIVACY
+--------------------------------------------------------------------------------
+
+  * All data stays on the machine that runs the tool. Nothing is sent to any
+    third-party service.
+
+  * Each batch gets its own folder containing: the batch manifest, the
+    uploaded input data exactly as received, the results journal, the activity
+    log, and the failure screenshots.
+
+  * Deleting a batch from the dashboard removes its entire folder — a clean,
+    complete delete.
+
+  * No database server, no cloud account, no subscription is required.
+
+--------------------------------------------------------------------------------
+22. HOSTING REQUIREMENTS (IMPORTANT FOR PLANNING)
+--------------------------------------------------------------------------------
+
+  * Runs on ONE long-lived machine: an office PC, a small server, a VPS, or a
+    container host such as Railway, Render or Fly.
+
+  * It CANNOT run on Vercel or any serverless platform, and this is by design,
+    not a limitation to be fixed. Three reasons: the automated browser needs a
+    persistent process and a real Chromium binary; a 1,000-product batch runs
+    for hours, far past any serverless function timeout; and the
+    crash-recovery guarantee depends on a durable local disk.
+
+  * The host must stay awake for the duration of a batch. Sleep settings
+    should be disabled on a desktop used for long runs.
+
+  * One batch runs at a time by design — concurrent scraping trips Flipkart's
+    bot protection.
+
+--------------------------------------------------------------------------------
+23. PERFORMANCE EXPECTATIONS
+--------------------------------------------------------------------------------
+
+  * Roughly 4 seconds per product at default settings.
+  * 100 products     — approximately 10 minutes
+  * 1,000 products   — approximately 1 to 3 hours
+  * The variance depends on Flipkart's response times, how many "show more"
+    clicks a product's seller list needs, and the pacing setting chosen.
+  * Faster pacing is available but increases blocking risk; the defaults are
+    deliberately conservative.
+
+--------------------------------------------------------------------------------
+24. SUMMARY — HEADLINE SELLING POINTS
+--------------------------------------------------------------------------------
+
+  1.  Turns two days of manual price checking into an unattended hour.
+  2.  Upload your existing Flipkart export — no reformatting required.
+  3.  Live dashboard with full start / pause / resume / stop control.
+  4.  Crash-proof: at most one product is ever lost, and resume is automatic.
+  5.  Tells you not just the price gap but whether matching it is profitable,
+      via the bank-settlement calculation.
+  6.  Detects who holds the buy box on every product.
+  7.  One click from any result to that product's Flipkart Seller Hub edit
+      page.
+  8.  Professional Excel export with a summary sheet, filters, and clickable
+      seller links.
+  9.  Screenshots and specific reasons for every single failure, with one-click
+      retry.
+  10. Engineered against real Flipkart traps, backed by 35 automated tests, and
+      built to degrade rather than break when Flipkart redesigns.
+  11. All data stays on your own machine. No database, no cloud service, no
+      recurring fees.
+
+================================================================================
+END OF OVERVIEW
+================================================================================

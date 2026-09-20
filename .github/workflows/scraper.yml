@@ -1,0 +1,119 @@
+name: Scraper
+
+# The scraper's runtime. It used to be a Node process on a desk; it is this now,
+# which is why nothing needs to stay awake for a batch to run.
+#
+# Two ways in, now that the schedule is off:
+#   schedule            DISABLED — see the commented-out block below
+#   repository_dispatch fired by the dashboard's Start button, via a PAT held in
+#                       Vercel's server environment (see lib/services/githubDispatch.ts)
+#   workflow_dispatch   by hand, from the Actions tab, for testing
+#
+# A run with an empty queue is a green tick, not a failure — the worker says so
+# and exits 0.
+
+on:
+  # DISABLED: the twice-daily schedule is turned off on purpose — batches are
+  # run by hand now, from the dashboard's Start button (repository_dispatch)
+  # or from the Actions tab (workflow_dispatch). Uncomment the block below to
+  # bring the automatic runs back; nothing else needs to change.
+#   schedule:
+#     # UTC only; GitHub has no timezone setting. 03:30 and 15:30 UTC are 09:00
+#     # and 21:00 IST, and India has no daylight saving, so these do not drift.
+#     #
+#     # Two things worth knowing rather than discovering: GitHub's scheduler is
+#     # best-effort and routinely runs 5-20 minutes late under load, and a
+#     # scheduled workflow in a public repository is disabled automatically after
+#     # 60 days with no repository activity. If batches quietly stop running,
+#     # check that second one first.
+#     - cron: '30 3,15 * * *'
+
+  repository_dispatch:
+    types: [run-scraper]
+
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: 'Batch id to run. Leave empty to take the oldest queued one.'
+        required: false
+        type: string
+
+# One scraper at a time, repository-wide.
+#
+# The database enforces this too — claim_job() is a conditional UPDATE, so two
+# runners cannot take the same batch. This is the cheaper guard in front of it:
+# it stops a second runner from booting and installing Chromium only to find
+# there is nothing for it. `cancel-in-progress: false` because the in-flight run
+# is doing real work; the newcomer should wait, not evict it.
+concurrency:
+  group: scraper
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    # A batch is ~30 minutes. This is generous headroom that still stops a
+    # wedged run from burning the full 6-hour ceiling.
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        # Dev dependencies included: Playwright lives there now, so that Vercel's
+        # production install never pulls it into the frontend build.
+        run: npm ci
+
+      - name: Cache Chromium
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          # Keyed on the resolved Playwright version, so a dependency bump
+          # invalidates the cache instead of running a new client against an old
+          # browser build.
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium
+        # --with-deps installs the system libraries Chromium needs on a bare
+        # ubuntu image. Those are not in the cached browser directory, so this
+        # runs whether or not the cache hit; it is fast when the binary is there.
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the worker
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+          # Which batch. Empty on a scheduled run, which means "the oldest
+          # queued one" — the schedule drains the queue, it does not invent work.
+          JOB_ID: ${{ github.event.inputs.job_id || github.event.client_payload.job_id }}
+
+          # A ceiling on browser contexts, whatever the batch asks for. A runner
+          # is 4 cores; a pool wider than the host retires fewer products per
+          # second, not more. Change this line, not the code, to tune it.
+          WORKER_MAX_CONCURRENCY: '8'
+
+          # Requests per second the whole pool may make, not per worker.
+          #
+          # Flipkart meters its seller endpoint per IP — a large opening
+          # allowance, then a refill of roughly 4-5/s, and HTTP 429 for
+          # everything past it. That is why a run used to feel fast for 70-80
+          # products and then collapse: the allowance ran out. A runner is an
+          # Azure datacentre address and gets less headroom than a home
+          # connection, so this starts low; the scraper halves it further on any
+          # 429 and wins it back on a clean streak. Raise it only with evidence.
+          WORKER_MAX_RPS: '2.5'
+
+          # Optional. Flipkart rate-limits by IP and these runners are Azure
+          # datacentre addresses. Unset means a direct connection; set the
+          # secret if runs start coming back full of BLOCKED rows.
+          PROXY_URL: ${{ secrets.PROXY_URL }}
+          PROXY_USERNAME: ${{ secrets.PROXY_USERNAME }}
+          PROXY_PASSWORD: ${{ secrets.PROXY_PASSWORD }}
+        run: npm run worker

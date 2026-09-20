@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.scraper.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["scripts/**/*.ts", "lib/**/*.ts", "types/**/*.ts", "scraper/**/*.ts"],
+  "exclude": ["node_modules", "dist", ".next"]
+}

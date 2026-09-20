@@ -1,0 +1,208 @@
+atyre je recommdation nu button che jena per click kari tyre niche nu route open thay che 
+
+http://localhost:3000/recommendations/job_mt059qqk_yre0j7
+
+aa route per atyre je badhi tab che:- 
+
+Tab name:- price chnage, already correct, settlment unsafe, buy box - selling, buy box - no orders, my listing , need review 
+
+aa badhi Tab ma badhu je batave che je logic karelu che pan rule ne ae badhu banvelu je price algo recommdation mate banavyo che ae badhu remove kari de pela mare new fresh logic recommdation karvu che.
+
+and aema new recommdation vala flow ma rule valu kai lavanu nathi hu je wise filter kav ae wise filter j add karvana che.
+
+Have mara new recommdation flow ma hu niche kav aetli Tab avse
+
+1. Price change (Diff)
+
+2. Price Change (Set Benchmark Price)
+
+3. already correct
+
+4. settlement unsafe (Set minumum bank setllment)
+
+5. buy box won (get order)
+
+6. buy box won (no order, more than one seller)
+
+7. buy box won (no order, only one seller in listing)
+
+8. Needs review
+
+have mare aa tab joti che and aa tab ma shu jotu che ae pan hu tamne apu pela basic terms apu shu che ae badhu kav tamne
+
+    listing sheet => sheet 1
+    settlement sheet => sheet 2
+    order sheet => sheet 3
+
+    ->your selling price(sheet 1) ma column che aema thi malse
+    ->current bank settlment (sheet 1) ma column che bank settlment ni name thi
+    ->benchmark price (sheet 1) ma benchmark price column name thi
+    ->minimum bank settlment (shhet 2) minimum bank settlment name thi column
+    ->Flipkart winner price:- have tame scrapping this Flipkart price lavo cho ae price je price per order ave che ae price.
+    ->Flipkart display our price:- my price lavo cho aenu name flipkart display our lising price karvanu che aeno meaning aevo che apde listing 220 ma kari hoy to sheet 1 ma your lising price 220 avse pan scrapping ma may be diffrent avi sake 210 ke koi pan je flipkart apdi price buyer ne batave che je already tame scrapping karo cho hu tamne just bane vache jo diffrence banatavu chu. your listing price and flipkart display our listing price bane same and diffrent pan hoy sake ano use avse agal filter ma.
+    ->Buy Box won already calulate karo ae same levanu che
+    ->FSN
+    ->seller (apde je seller mate je badhu karavi che ae seller)
+    ->winner seller name (scrapping thi jene order ave ae seller name)
+    ->diffrence (atyre je rite calulcate karo cho aene apde use karshu agal)
+    ->benchmark diffrence (benchmark price - flipkart display our price)
+    ->orders (kaya fsn mate ketla order ave che ae hu tamne sheet 3 provide karis ae sheet per thi calculate karvana che aeno use hu tamne agal kais.)
+    ->fees(your listing price - current bank settlment)
+
+have je record che ae record ma kai rite filter add kari ne kaya record kai rite batavana ae hu tamne kahu chu and ae tab ma shu shu display karvanu ae pan kav tamne.
+
+1. Price change (Diff)
+
+   logic: kaya record avse ae
+
+   => pela aeva record levana ke jema buy box loss
+   => pachi check karvanu ke (current bank settlment + diffrence) > minimum bank settlment
+   => aa condition fullfilled thay aetla record aa tab ma batavana che 
+
+   column name: 
+   => FSN
+   => buy box won (jo won hoy to yes else no)
+   => Current listing price (your listing price)
+   => Flipkart Display our price 
+   => Winner price (Flipkart winner price)
+   => Benchmark price (benchmark price)
+   => Change (diffrence)
+   => Expected listing price (your listing price + diffrence)
+   => Expected bank settlment (current bank settlment + diffrence)
+   => Minimum bank settlment (minimum bank settlment)
+   => winner seller (winner seller name)
+   => orders count (last 24 hours ma je order ave che ae orders)
+
+2. Price Change (Set Benchmark Price)
+
+   have tamre ae jovanu che badha records mathi data levana nathi have 1st tab ma je record avya aena shivay na je record che aema j niche na fliter ma ave to display karvana record aa tab ma
+
+   logic
+
+   => pela aeva record levana ke jema buy box loss
+   => Have atyr sudhi tame diffrence calculate karta hata e diffrence tame (winner price - flipkart display our price) jena per thi karta aa actual diffrence che have new benchmark price diffrence avse (benchmark price - flipkart display our price) ae (current bank settlment + benchmark price diffrence > minimum bank settlment) jo aa condition satisfy thay to hu tamne niche je column apu ae columns display karjo.
+
+   => FSN,
+   => buy box won (jo won hoy to yes else no)
+   => Flipkart Display our price 
+   => Winner price (Flipkart winner price)
+   => Benchmark price (benchmark price)
+   => Change (diffrence)
+   => benchmark price diffrence (benchmark price - flipkart display our price)
+   => Expected listing price (Benchmark price)
+   => Expected bank settlment (current bank settlment + benchmark price diffrence)
+   => Minimum bank settlment (minimum bank settlment)
+   => winner seller (winner seller name)
+   => orders count (last 24 hours ma je order ave che ae orders)
+
+3. already correct
+
+   have tamre ae jovanu che badha records mathi data levana nathi have 1st,2nd tab ma je record avya aena shivay na je record che aema j niche na fliter ma ave to display karvana record aa tab ma
+
+   logic
+
+   => pela aeva record levana ke jema buy box loss
+   => have (flipkart display our price = winner price) jo aa condition satisfy thay to hu tamne niche je column apu ae columns display karjo.
+
+   => FSN,
+   => buy box won (jo won hoy to yes else no)
+   => Flipkart Display our price
+   => Winner price (Flipkart winner price)
+   => Benchmark price (benchmark price)
+   => Change (diffrence)
+   => Minimum bank settlment (minimum bank settlment)
+   => winner seller (winner seller name)
+   => orders count (last 24 hours ma je order ave che ae orders)
+
+4. settlement unsafe (Set minumum bank setllment)
+
+   have tamre ae jovanu che badha records mathi data levana nathi have 1st,2nd,3rd tab ma je record avya aena shivay na je record che aema j niche na fliter ma ave to display karvana record aa tab ma
+
+   logic
+
+   => pela aeva record levana ke jema buy box loss
+
+   niche ni column display karvani che
+
+   => FSN,
+   => buy box won (jo won hoy to yes else no)
+   => Flipkart Display our price 
+   => Winner price (Flipkart winner price)
+   => Benchmark price (benchmark price)
+   => Change (diffrence)
+   => Expected listing price (minumn bank settlment + fees)
+   => Expected bank settlment (minimum bank settlment)
+   => Minimum bank settlment (minimum bank settlment)
+   => winner seller (winner seller name)
+   => orders count (last 24 hours ma je order ave che ae orders)
+
+5. buy box won (get order)
+
+   have tamre ae jovanu che badha records mathi data levana nathi have 1st,2nd,3rd,4th tab ma je record avya aena shivay na je record che aema j niche na fliter ma ave to display karvana record aa tab ma
+
+   logic
+
+   => pela aeva record levana ke jema buy box won
+   => orderc ount > 0 jo aa condition satisfy thay to hu tamne niche je column apu ae columns display karjo.
+
+   => FSN,
+   => buy box won (jo won hoy to yes else no)
+   => Flipkart Display our price 
+   => Winner price (Flipkart winner price)
+   => Benchmark price (benchmark price)
+   => Change (diffrence)
+   => Minimum bank settlment (minimum bank settlment)
+   => winner seller (winner seller name)
+   => orders count (last 24 hours ma je order ave che ae orders)
+
+
+6. buy box won (no order, more than one seller in listing)
+
+   have tamre ae jovanu che badha records mathi data levana nathi have 1st,2nd,3rd,4th,5th tab ma je record avya aena shivay na je record che aema j niche na fliter ma ave to display karvana record aa tab ma
+
+   logic
+
+   => pela aeva record levana ke jema buy box won
+   => orderc ount = 0 jo aa condition
+   => and ae listing ma more than one seller hova joiye satisfy thay to hu tamne niche je column apu ae columns display karjo.
+
+   => FSN,
+   => buy box won (jo won hoy to yes else no)
+   => Flipkart Display our price 
+   => Winner price (Flipkart winner price)
+   => Benchmark price (benchmark price)
+   => Change (diffrence)
+   => Expected listing price (pela check krvanu ((benckmark diffrence + current bank settlment) > minimum bank settlment) jo aa condition satify thay to benchmark price as a expected listing price else (minimum bank settlment + fees) as expected listing price)
+   => Expected bank settlment (pela check krvanu ((benckmark diffrence + current bank settlment) > minimum bank settlment) jo aa condition satify thay to (benckmark diffrence + current bank settlment)  as a expected listing price else minimum bank settlment as expected listing price)
+   => Minimum bank settlment (minimum bank settlment)
+   => winner seller (winner seller name)
+   => orders count (last 24 hours ma je order ave che ae orders)
+
+7. buy box won (no order, only one seller in listing)
+
+   have tamre ae jovanu che badha records mathi data levana nathi have 1st,2nd,3rd,4th,5th,6th tab ma je record avya aena shivay na je record che aema j niche na fliter ma ave to display karvana record aa tab ma
+
+   logic
+
+   => pela aeva record levana ke jema buy box won
+   => orderc ount = 0 jo aa condition
+   => and ae listing ma only one seller hova joiye satisfy thay to hu tamne niche je column apu ae columns display karjo.
+
+   => FSN,
+   => buy box won (jo won hoy to yes else no)
+   => Flipkart Display our price 
+   => Winner price (Flipkart winner price)
+   => Benchmark price (benchmark price)
+   => Change (diffrence)
+   => Minimum bank settlment (minimum bank settlment)
+   => winner seller (winner seller name)
+   => orders count (last 24 hours ma je order ave che ae orders)
+
+
+8. Needs review
+
+   have tamre ae jovanu che badha records mathi data levana nathi have 1st,2nd,3rd,4th,5th,6th,7th tab ma je record avya aena shivay na je record che aema j niche na fliter ma ave to display karvana record aa tab ma
+
+   logic
+
+   => scrapping fail thayu hoy aeva record levana.

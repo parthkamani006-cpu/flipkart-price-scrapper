@@ -1,0 +1,5 @@
+{
+  "//": "The worker spans scraper/ and lib/, so it needs the @/* paths that tsconfig.scraper.json deliberately omits. tsconfig.test.json already supplies exactly that shape; this only widens the include. It runs under ts-node with tsconfig-paths/register — NOT under tsx or any other esbuild-based runner: esbuild's keepNames rewrites function expressions to reference a `__name` helper, and a function handed to page.evaluate is serialised and run in the browser, where that helper does not exist. The failure is a ReferenceError from inside Chromium, a long way from its cause.",
+  "extends": "./tsconfig.test.json",
+  "include": ["worker/**/*.ts", "scripts/**/*.ts", "lib/**/*.ts", "types/**/*.ts", "scraper/**/*.ts"]
+}
