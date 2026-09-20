@@ -51,15 +51,19 @@ concurrency:
 
 jobs:
   scrape:
-    runs-on: ubuntu-latest
+    # Pin the current LTS image so an `ubuntu-latest` migration cannot change
+    # the browser/system-library combination under the scraper unexpectedly.
+    runs-on: ubuntu-24.04
     # A batch is ~30 minutes. This is generous headroom that still stops a
     # wedged run from burning the full 6-hour ceiling.
     timeout-minutes: 120
 
     steps:
-      - uses: actions/checkout@v4
+      # v5 actions run on Node 24, avoiding GitHub's Node 20 deprecation
+      # warning while remaining compatible with GitHub-hosted runners.
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
@@ -71,7 +75,7 @@ jobs:
 
       - name: Cache Chromium
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           # Keyed on the resolved Playwright version, so a dependency bump
@@ -84,6 +88,23 @@ jobs:
         # ubuntu image. Those are not in the cached browser directory, so this
         # runs whether or not the cache hit; it is fast when the binary is there.
         run: npx playwright install --with-deps chromium
+
+      # GitHub deliberately replaces an unavailable secret with an empty
+      # string. Check that boundary explicitly: otherwise the worker exits in
+      # its first second and the Actions UI only shows "exit code 1".
+      - name: Verify worker configuration
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          missing=0
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Missing GitHub Actions secret::$name is not configured. Add it under Settings > Secrets and variables > Actions, then re-run this workflow."
+              missing=1
+            fi
+          done
+          exit "$missing"
 
       - name: Run the worker
         env:
